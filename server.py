@@ -69,7 +69,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
         return str(filedata)
     
     def check_valid(self, filepath):
-        if path.exists("./" + filepath):
+        if path.exists("./www/" + filepath):
             return True
         else:
             return False 
