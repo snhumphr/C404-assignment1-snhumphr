@@ -45,6 +45,8 @@ class MyWebServer(socketserver.BaseRequestHandler):
         
         status_line = self.get_status_line(filepath)
             
+        #REMEMBER TO INCLUDE THE DATE, CONTENT LENGTH, CONNECTION AND CONTENT TYPE LINES AS WELL
+            
         self.request.sendall(bytearray(status_line,'utf-8'))
         
     def get_status_line(self, filepath):
