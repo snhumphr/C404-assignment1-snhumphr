@@ -31,25 +31,51 @@ from os import path
 class MyWebServer(socketserver.BaseRequestHandler):
     
     def handle(self):
+        
+        self.protocol = "HTTP/1.1 "
+        
+        self.crlf = "\r\n"          
+        
         self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
+        #TODO: RECEIVE ALL THE REQUEST STUFF, UNTIL IT RETURNS A BLANK /r/l
+        #print ("Got a request of: %s\n" % self.data)
         
         client_request = self.data.decode('utf-8').split(" ")
-        print("This is the client request: ", client_request)
+        #print("This is the client request: ", client_request)
         
-        #TODO: handle requests other then GET here
+        method_type = client_request[0]
         
         filepath = client_request[1]
         
-        print("This is the filepath: \"" + filepath + "\"")
+        if filepath[-1:] is "/":
+            filepath = filepath + "index.html"
         
-        status_line = self.get_status_line(filepath)
+        #print("This is the filepath: " + filepath)
+        
+        status_line = self.get_status_line(method_type, filepath)
+            
+        date = self.get_current_date()
+        
+        connection = self.get_connection()
+        
+        content = ""
+        content_length = ""
+        content_type = ""
+        
+        if "4" not in status_line: 
+            content, content_length, content_type = self.get_file(filepath)
+        
+        response = self.consolidate_response(status_line, date, connection, content_length, content_type, content)
             
         #REMEMBER TO INCLUDE THE DATE, CONTENT LENGTH, CONNECTION AND CONTENT TYPE LINES AS WELL
             
-        self.request.sendall(bytearray(status_line,'utf-8'))
+        self.request.sendall(bytearray(response,'utf-8'))
         
-    def get_status_line(self, filepath):
+    def get_status_line(self, method_type, filepath):
+        
+        if "GET" not in method_type:
+            return self.protocol + "405 Method Not Allowed" + self.crlf
+        
         found = self.check_valid(filepath)
         
         if not found:
@@ -61,20 +87,37 @@ class MyWebServer(socketserver.BaseRequestHandler):
             #handle properly
             status = "200 OK"
             
-        return "HTTP/1.1 " + status
+        return self.protocol + status + self.crlf
     
+    def get_current_date(self):
+        return "Date: Tue, 15 Nov 1994 08:12:31 GMT" + self.crlf
+    
+    def get_connection(self):
+        return "Connection: closed" + self.crlf
         
     def get_file(self, filepath):
         filedata = None
-        f = open("./www/" + filepath, "r")
+        f = open("./www" + filepath, "r")
         filedata = f.read()
-        return str(filedata)
+        content = str(filedata)
+        content_length = "Content-Length: " + str(len(content)) + self.crlf
+        content_type = "Content-Type: " + "text/" + filepath.split(".")[-1:][0] + "; charset=utf-8" + self.crlf
+        content = content + self.crlf
+        #content_type = filepath.split(".")[-1:] + self.crlf
+        #TODO: CHECK IF THE CONTENT LENGTH INCLUDES STUFF LIKE /r
+        return (content, content_length, content_type)
     
     def check_valid(self, filepath):
         if path.exists("./www/" + filepath):
             return True
         else:
             return False 
+        
+    def consolidate_response(self, status_line, date, connection, content_type, content_length, content):
+        response = status_line + date + connection
+        response = response + content_type + content_length
+        response = response + self.crlf + content + self.crlf
+        return response
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
