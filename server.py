@@ -46,13 +46,13 @@ class MyWebServer(socketserver.BaseRequestHandler):
         method_type = client_request[0]
         
         filepath = client_request[1]
-        
+    
         if filepath[-1:] is "/":
-            filepath = filepath + "index.html"
+            filepath = filepath + "index.html"        
         
         #print("This is the filepath: " + filepath)
         
-        status_line = self.get_status_line(method_type, filepath)
+        status_line, filepath = self.get_status_line(method_type, filepath)
             
         date = self.get_current_date()
         
@@ -74,20 +74,25 @@ class MyWebServer(socketserver.BaseRequestHandler):
     def get_status_line(self, method_type, filepath):
         
         if "GET" not in method_type:
-            return self.protocol + "405 Method Not Allowed" + self.crlf
+            return (self.protocol + "405 Method Not Allowed" + self.crlf, filepath)
         
         found = self.check_valid(filepath)
+        new_filepath = filepath
         
-        if not found:
-            #check if this can be fixed with a 301 redirect
-            pass
-            #if it can't, then throw a 404 error here
-            status = "404 Not Found"
+        if found != 1:
+            if found == 0:
+                #if it can't, then throw a 404 error here
+                status = "404 Not Found"
+            elif found == 2:
+                status = "301 Moved Permanently"
+                new_filepath = new_filepath + "/index.html"
         else:
             #handle properly
             status = "200 OK"
             
-        return self.protocol + status + self.crlf
+        print("Return value of get_status_line: ", (self.protocol + status + self.crlf, new_filepath))
+            
+        return (self.protocol + status + self.crlf, new_filepath)
     
     def get_current_date(self):
         return "Date: Tue, 15 Nov 1994 08:12:31 GMT" + self.crlf
@@ -108,10 +113,18 @@ class MyWebServer(socketserver.BaseRequestHandler):
         return (content, content_length, content_type)
     
     def check_valid(self, filepath):
+        
+        
         if path.exists("./www/" + filepath):
-            return True
+            if filepath[:-1] != "/" and "." not in filepath:
+                if path.exists("./www/" + filepath + "/index.html"):
+                    return 2
+                else:
+                    return 0
+            else:
+                return 1
         else:
-            return False 
+            return 0
         
     def consolidate_response(self, status_line, date, connection, content_type, content_length, content):
         response = status_line + date + connection
