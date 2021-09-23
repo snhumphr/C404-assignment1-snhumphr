@@ -1,5 +1,7 @@
 #  coding: utf-8 
 import socketserver
+import datetime
+import pytz
 from os import path
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
@@ -38,10 +40,8 @@ class MyWebServer(socketserver.BaseRequestHandler):
         
         self.data = self.request.recv(1024).strip()
         #TODO: RECEIVE ALL THE REQUEST STUFF, UNTIL IT RETURNS A BLANK /r/l
-        #print ("Got a request of: %s\n" % self.data)
         
         client_request = self.data.decode('utf-8').split(" ")
-        #print("This is the client request: ", client_request)
         
         method_type = client_request[0]
         
@@ -49,8 +49,6 @@ class MyWebServer(socketserver.BaseRequestHandler):
     
         if filepath[-1:] is "/":
             filepath = filepath + "index.html"        
-        
-        #print("This is the filepath: " + filepath)
         
         status_line, filepath = self.get_status_line(method_type, filepath)
             
@@ -66,9 +64,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
             content, content_length, content_type = self.get_file(filepath)
         
         response = self.consolidate_response(status_line, date, connection, content_length, content_type, content)
-            
-        #REMEMBER TO INCLUDE THE DATE, CONTENT LENGTH, CONNECTION AND CONTENT TYPE LINES AS WELL
-            
+
         self.request.sendall(bytearray(response,'utf-8'))
         
     def get_status_line(self, method_type, filepath):
@@ -81,7 +77,6 @@ class MyWebServer(socketserver.BaseRequestHandler):
         
         if found != 1:
             if found == 0:
-                #if it can't, then throw a 404 error here
                 status = "404 Not Found"
             elif found == 2:
                 status = "301 Moved Permanently"
@@ -89,13 +84,14 @@ class MyWebServer(socketserver.BaseRequestHandler):
         else:
             #handle properly
             status = "200 OK"
-            
-        print("Return value of get_status_line: ", (self.protocol + status + self.crlf, new_filepath))
-            
+                    
         return (self.protocol + status + self.crlf, new_filepath)
     
     def get_current_date(self):
-        return "Date: Tue, 15 Nov 1994 08:12:31 GMT" + self.crlf
+        date = datetime.datetime.now()
+        date = date.astimezone(pytz.timezone("GMT"))
+        date = date.strftime("%a, %d %b %Y %H:%M:%S")
+        return "Date: " + date + " GMT" + self.crlf
     
     def get_connection(self):
         return "Connection: closed" + self.crlf
@@ -114,8 +110,10 @@ class MyWebServer(socketserver.BaseRequestHandler):
     
     def check_valid(self, filepath):
         
-        
         if path.exists("./www/" + filepath):
+            norm_filepath = path.normpath("./www/" + filepath)
+            if norm_filepath.split("/")[0] != "www":
+                return 0
             if filepath[:-1] != "/" and "." not in filepath:
                 if path.exists("./www/" + filepath + "/index.html"):
                     return 2
